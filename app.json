@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "box-trap",
-    "slug": "box-trap",
+    "name": "blockade",
+    "slug": "blockade",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "myapp",
+    "scheme": "blockade",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/images/splash.png",
