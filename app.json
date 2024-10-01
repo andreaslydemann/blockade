@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "blockade",
-    "slug": "blockade",
+    "name": "box-em-goose",
+    "slug": "box-em-goose",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "blockade",
+    "scheme": "box-em-goose",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/images/splash.png",

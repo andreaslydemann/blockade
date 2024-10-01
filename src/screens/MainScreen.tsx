@@ -1,40 +1,59 @@
 import React, { useState } from "react";
-import { Board } from "@components/Board";
-import { View, Text } from "react-native";
-import { Victory } from "@components/Victory";
+import { View, StyleSheet } from "react-native";
+import { Board } from "../components/Board";
+import { Menu } from "../components/Menu";
+import { GameEnded } from "../components/GameEnded";
+import { levels } from "../levels";
 
-const board = [
-  ["#", "#", "#", "#", "#", "#", "#", "#", "#", "#", "#", "#"],
-  ["#", ".", ".", ".", "#", ".", ".", ".", ".", ".", ".", "#"],
-  ["#", ".", "#", ".", "#", ".", ".", ".", ".", ".", ".", "#"],
-  ["#", ".", ".", ".", ".", ".", ".", "#", ".", "X", ".", "#"],
-  ["#", ".", ".", ".", "P", ".", ".", ".", ".", ".", ".", "#"],
-  ["#", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "#"],
-  ["#", "X", "B", ".", ".", ".", ".", "#", ".", ".", ".", "#"],
-  ["#", ".", ".", ".", "#", ".", ".", ".", ".", ".", ".", "#"],
-  ["#", ".", ".", ".", "#", ".", ".", ".", ".", "B", ".", "#"],
-  ["#", ".", ".", ".", "#", ".", ".", ".", ".", ".", ".", "#"],
-  ["#", "#", "#", "#", "#", "#", "#", "#", "#", "#", "#", "#"],
-];
+export const MainScreen: React.FC = () => {
+  const [currentLevel, setCurrentLevel] = useState<number | null>(null);
 
-export const MainScreen = () => {
-  const [gameOver, setGameOver] = useState(false);
+  const [isGameEnded, setIsGameEnded] = useState(false);
+  const [gameWon, setGameWon] = useState(false);
+  const [isTimeout, setIsTimeout] = useState(false);
 
-  const handleGameOver = () => {
-    setGameOver(true);
+  const handleStartGame = (level: number) => {
+    setCurrentLevel(level);
+    setIsGameEnded(false);
+    setGameWon(false);
+    setIsTimeout(false);
   };
 
-  const handleRestart = () => {
-    setGameOver(false);
+  const handleBackToMenu = () => {
+    setCurrentLevel(null);
   };
+
+  if (currentLevel === null) {
+    return <Menu onStartGame={handleStartGame} />;
+  }
+
+  const handleGameOver = (won: boolean, timeout: boolean) => {
+    setIsGameEnded(true);
+    setGameWon(won);
+    setIsTimeout(timeout);
+  };
+
+  if (isGameEnded) {
+    return <GameEnded won={gameWon} isTimeout={isTimeout} onBackToMenu={handleBackToMenu} />;
+  }
 
   return (
-    <View>
-      {gameOver ? (
-        <Victory onRestart={handleRestart}></Victory>
-      ) : (
-        <Board board={board} onGameOver={handleGameOver}></Board>
-      )}
+    <View style={styles.container}>
+      <Board
+        board={levels[currentLevel].board}
+        enemySpeed={levels[currentLevel].settings.enemySpeed}
+        timeLimit={levels[currentLevel].settings.timeLimit}
+        onGameOver={handleGameOver}
+        onExit={handleBackToMenu} // Add this line
+      />
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+});

@@ -1,230 +1,114 @@
-import React, { useEffect, useRef, useState } from "react";
-import {
-  Image,
-  StyleSheet,
-  Text,
-  PanResponder,
-  View,
-  Pressable,
-  PanResponderGestureState,
-} from "react-native";
-import { Player } from "./Player";
-import { Wall } from "./Wall";
-import { Box } from "./Box";
-import { Target } from "./Target";
-import { Vide } from "./Vide";
-
-interface BoardProps {
-  board: string[][];
-  onGameOver: () => void;
-}
+import React, { useEffect, useState, useCallback } from "react";
+import { Image, StyleSheet, Text, View, Pressable, Dimensions, Button } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Player, Wall, Box, Enemy } from "./GameElements";
+import { useGameLogic } from "../hooks/useGameLogic";
+import { useEnemyMovement } from "../hooks/useEnemyMovement";
+import { useTimer } from "../hooks/useTimer";
+import { Point, BoardProps } from "../types";
 
 export const Board: React.FC<BoardProps> = ({
   board: initialBoard,
+  enemySpeed,
+  timeLimit,
   onGameOver,
+  onExit,
 }) => {
-  const [swipeDirection, setSwipeDirection] = useState<string>("");
   const [board, setBoard] = useState<string[][]>(initialBoard);
-  const [swipeHandled, setSwipeHandled] = useState<boolean>(false);
-  const [nextX, setNextX] = useState<number>(4);
-  const [nextY, setNextY] = useState<number>(4);
-  const [isCroix, setIsCroix] = useState<number>(0);
+  const [playerPosition, setPlayerPosition] = useState<Point>(
+    findInitialPlayerPosition(initialBoard)
+  );
+  const [cellSize, setCellSize] = useState<number>(0);
+  const [boardDimensions, setBoardDimensions] = useState({ width: 0, height: 0 });
 
-  const handleSwipe = (): void => {
-    if (!swipeHandled) {
-      setSwipeHandled(true);
-    }
-  };
+  const insets = useSafeAreaInsets();
 
-  const checkWin = (newBoard: string[][]): void => {
-    const thereIsAnX = newBoard.some((subArray) => subArray.includes("X"));
-    if (!thereIsAnX) {
-      console.log("Victoire");
-      onGameOver();
-    }
-  };
+  const handleTimeout = useCallback(() => {
+    onGameOver(false, true);
+  }, [onGameOver]);
 
-  const CheckCroix = (
-    newBoard: string[][],
-    PositionX: number,
-    PositionY: number,
-    currentPlayerPosition: { x: number; y: number }
-  ): void => {
-    if (isCroix === 0) {
-      newBoard[currentPlayerPosition.x][currentPlayerPosition.y] = ".";
-      newBoard[PositionX][PositionY] = "P";
-      setIsCroix(1);
-    } else {
-      newBoard[currentPlayerPosition.x][currentPlayerPosition.y] = "X";
-      newBoard[nextX][nextY] = "P";
-      setIsCroix(0);
-    }
-  };
+  const { timeLeft, resetTimer } = useTimer(timeLimit, handleTimeout);
 
-  const CheckCroixCaseVide = (
-    newBoard: string[][],
-    PositionX: number,
-    PositionY: number,
-    currentPlayerPosition: { x: number; y: number }
-  ): void => {
-    if (isCroix === 0) {
-      newBoard[currentPlayerPosition.x][currentPlayerPosition.y] = ".";
-      newBoard[PositionX][PositionY] = "P";
-    } else {
-      newBoard[currentPlayerPosition.x][currentPlayerPosition.y] = "X";
-      newBoard[nextX][nextY] = "P";
-      setIsCroix(0);
-    }
-  };
+  const { movePlayer, checkGameOver } = useGameLogic(
+    board,
+    setBoard,
+    playerPosition,
+    setPlayerPosition,
+    onGameOver
+  );
+
+  const { enemies, moveEnemies } = useEnemyMovement(
+    initialBoard,
+    setBoard,
+    playerPosition,
+    enemySpeed,
+    checkGameOver,
+    onGameOver
+  );
 
   useEffect(() => {
-    setPlayerPosition(nextX, nextY);
-  }, [nextX, nextY]);
+    calculateBoardDimensions();
+  }, [initialBoard, insets]);
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderRelease: (_, gestureState: PanResponderGestureState) => {
-        const { dx, dy } = gestureState;
-        if (Math.abs(dx) > Math.abs(dy)) {
-          setSwipeDirection(dx > 0 ? "right" : "left");
-          handleSwipe();
-          if (dx > 0) setNextX((prevX) => prevX + 1);
-          else setNextX((prevX) => prevX - 1);
-        } else {
-          if (dy > 0) setNextY((prevY) => prevY + 1);
-          else setNextY((prevY) => prevY - 1);
-          setSwipeDirection(dy > 0 ? "down" : "up");
-        }
-      },
-    })
-  ).current;
+  const calculateBoardDimensions = () => {
+    const screenWidth = Dimensions.get("window").width;
+    const screenHeight = Dimensions.get("window").height;
+    const boardRows = initialBoard.length;
+    const boardCols = initialBoard[0].length;
 
-  const setPlayerPosition = (nextX: number, nextY: number): void => {
-    let _currentPlayerPosition: { x: number; y: number } | null = null;
-    const newBoard = board.map((row, rowIndex) =>
-      row.map((cell, cellIndex) => {
-        if (cell === "P") {
-          _currentPlayerPosition = { x: rowIndex, y: cellIndex } as {
-            x: number;
-            y: number;
-          } | null;
-        }
-        return cell;
-      })
-    );
+    const availableWidth = screenWidth - insets.left - insets.right - 40;
+    const availableHeight = screenHeight - insets.top - insets.bottom - 200;
 
-    if (!_currentPlayerPosition) {
-      console.error("Player position not found on the board");
-      return;
-    }
+    const cellSizeFromWidth = availableWidth / boardCols;
+    const cellSizeFromHeight = availableHeight / boardRows;
+    const newCellSize = Math.floor(Math.min(cellSizeFromWidth, cellSizeFromHeight));
 
-    const currentPlayerPosition = _currentPlayerPosition as {
-      x: number;
-      y: number;
-    };
-
-    if (newBoard[nextX][nextY] === "#") {
-      newBoard[currentPlayerPosition.x][currentPlayerPosition.y] = "P";
-      setNextX(currentPlayerPosition.x);
-      setNextY(currentPlayerPosition.y);
-    } else if (newBoard[nextX][nextY] === "B") {
-      let boxMoved = false;
-
-      if (
-        swipeDirection === "up" &&
-        newBoard[nextX][nextY - 1] !== "#" &&
-        newBoard[nextX][nextY - 1] !== "B"
-      ) {
-        newBoard[currentPlayerPosition.x][currentPlayerPosition.y] = ".";
-        newBoard[nextX][nextY] = "P";
-        newBoard[nextX][nextY - 1] = "B";
-        boxMoved = true;
-      } else if (
-        swipeDirection === "down" &&
-        newBoard[nextX][nextY + 1] !== "#" &&
-        newBoard[nextX][nextY + 1] !== "B"
-      ) {
-        newBoard[currentPlayerPosition.x][currentPlayerPosition.y] = ".";
-        newBoard[nextX][nextY] = "P";
-        newBoard[nextX][nextY + 1] = "B";
-        boxMoved = true;
-      } else if (
-        swipeDirection === "left" &&
-        newBoard[nextX - 1][nextY] !== "#" &&
-        newBoard[nextX - 1][nextY] !== "B"
-      ) {
-        newBoard[currentPlayerPosition.x][currentPlayerPosition.y] = ".";
-        newBoard[nextX][nextY] = "P";
-        newBoard[nextX - 1][nextY] = "B";
-        boxMoved = true;
-      } else if (
-        swipeDirection === "right" &&
-        newBoard[nextX + 1][nextY] !== "#" &&
-        newBoard[nextX + 1][nextY] !== "B"
-      ) {
-        newBoard[currentPlayerPosition.x][currentPlayerPosition.y] = ".";
-        newBoard[nextX][nextY] = "P";
-        newBoard[nextX + 1][nextY] = "B";
-        boxMoved = true;
-      }
-      if (boxMoved) {
-        newBoard[currentPlayerPosition.x][currentPlayerPosition.y] = ".";
-        newBoard[nextX][nextY] = "P";
-      } else {
-        setNextX(currentPlayerPosition.x);
-        setNextY(currentPlayerPosition.y);
-      }
-
-      checkWin(newBoard);
-    } else if (newBoard[nextX][nextY] === "X") {
-      CheckCroix(newBoard, nextX, nextY, currentPlayerPosition);
-    } else {
-      CheckCroixCaseVide(newBoard, nextX, nextY, currentPlayerPosition);
-    }
-    setBoard(newBoard);
+    setCellSize(newCellSize);
+    setBoardDimensions({
+      width: newCellSize * boardCols,
+      height: newCellSize * boardRows,
+    });
   };
 
-  const handleDirectionButton = (direction: string): void => {
-    setSwipeDirection(direction);
-    switch (direction) {
-      case "up":
-        setNextY((prevY) => prevY - 1);
-        break;
-      case "down":
-        setNextY((prevY) => prevY + 1);
-        break;
-      case "left":
-        setNextX((prevX) => prevX - 1);
-        break;
-      case "right":
-        setNextX((prevX) => prevX + 1);
-        break;
-    }
-    handleSwipe();
+  const handleDirectionButton = (direction: string) => {
+    const directionMap: { [key: string]: Point } = {
+      left: { x: 0, y: -1 },
+      right: { x: 0, y: 1 },
+      up: { x: -1, y: 0 },
+      down: { x: 1, y: 0 },
+    };
+    const newPosition = {
+      x: playerPosition.x + directionMap[direction].x,
+      y: playerPosition.y + directionMap[direction].y,
+    };
+    movePlayer(newPosition);
   };
 
   return (
-    <View>
-      <View {...panResponder.panHandlers}>
-        <View style={styles.container}>
+    <View style={styles.outerContainer}>
+      <View style={[styles.topBar, { top: insets.top }]}>
+        <View style={styles.timerContainer}>
+          <Text style={styles.timerText}>Time left: {timeLeft}s</Text>
+        </View>
+        <Button title="Exit" onPress={onExit} />
+      </View>
+
+      <View style={styles.boardContainer}>
+        <View style={[styles.board, boardDimensions]}>
           {board.map((row, rowIndex) => (
-            <View key={rowIndex}>
+            <View key={rowIndex} style={{ flexDirection: "row" }}>
               {row.map((cell, cellIndex) => (
-                <View
-                  key={cellIndex}
-                  style={[styles.cell, cell === "#" && styles.wall]}
-                >
+                <View key={cellIndex} style={[styles.cell, { width: cellSize, height: cellSize }]}>
                   {cell === "." && (
                     <Image
                       source={require("../../assets/images/background.png")}
+                      style={{ width: cellSize, height: cellSize }}
                     />
                   )}
-                  {cell === "#" && <Wall />}
-                  {cell === "P" && <Player />}
-                  {cell === "B" && <Box />}
-                  {cell === "X" && <Target />}
-                  {cell === "@" && <Vide />}
+                  {cell === "#" && <Wall size={cellSize} />}
+                  {cell === "P" && <Player size={cellSize} />}
+                  {cell === "B" && <Box size={cellSize} />}
+                  {cell === "E" && <Enemy size={cellSize} />}
                 </View>
               ))}
             </View>
@@ -233,55 +117,50 @@ export const Board: React.FC<BoardProps> = ({
       </View>
 
       <View style={styles.buttonContainer}>
-        <Pressable
-          style={styles.button}
-          onPress={() => handleDirectionButton("up")}
-        >
+        <Pressable style={styles.button} onPress={() => handleDirectionButton("up")}>
           <Text style={styles.buttonText}>↑</Text>
         </Pressable>
         <View style={styles.horizontalButtons}>
-          <Pressable
-            style={styles.button}
-            onPress={() => handleDirectionButton("left")}
-          >
+          <Pressable style={styles.button} onPress={() => handleDirectionButton("left")}>
             <Text style={styles.buttonText}>←</Text>
           </Pressable>
-          <Pressable
-            style={styles.button}
-            onPress={() => handleDirectionButton("right")}
-          >
+          <Pressable style={styles.button} onPress={() => handleDirectionButton("right")}>
             <Text style={styles.buttonText}>→</Text>
           </Pressable>
         </View>
-        <Pressable
-          style={styles.button}
-          onPress={() => handleDirectionButton("down")}
-        >
+        <Pressable style={styles.button} onPress={() => handleDirectionButton("down")}>
           <Text style={styles.buttonText}>↓</Text>
         </Pressable>
       </View>
-
-      <Text style={styles.text}>{board}</Text>
-      <Text style={styles.text}>{swipeDirection}</Text>
-      <Text style={styles.text}>{nextX}</Text>
-      <Text style={styles.text}>{nextY}</Text>
     </View>
   );
 };
 
+function findInitialPlayerPosition(board: string[][]): Point {
+  for (let x = 0; x < board.length; x++) {
+    for (let y = 0; y < board[x].length; y++) {
+      if (board[x][y] === "P") return { x, y };
+    }
+  }
+  return { x: 0, y: 0 };
+}
+
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: "row",
-    justifyContent: "center",
+  outerContainer: {
+    flex: 1,
     alignItems: "center",
+  },
+  boardContainer: {
+    alignItems: "center",
+    justifyContent: "center",
     marginTop: 50,
   },
+  board: {
+    flexDirection: "column",
+  },
   cell: {
-    width: 30,
-    height: 30,
-    textAlign: "center",
-    lineHeight: 30,
-    fontWeight: "bold",
+    justifyContent: "center",
+    alignItems: "center",
   },
   buttonContainer: {
     alignItems: "center",
@@ -306,9 +185,26 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 24,
   },
-  wall: { borderWidth: 2, borderColor: "red" },
   text: {
     color: "white",
     fontSize: 24,
+  },
+  topBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+    paddingHorizontal: 10,
+    marginBottom: 10,
+  },
+  timerContainer: {
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    padding: 5,
+    borderRadius: 5,
+  },
+  timerText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "bold",
   },
 });
