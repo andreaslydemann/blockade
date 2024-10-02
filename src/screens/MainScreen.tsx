@@ -44,7 +44,7 @@ export const MainScreen: React.FC = () => {
         enemySpeed={levels[currentLevel].settings.enemySpeed}
         timeLimit={levels[currentLevel].settings.timeLimit}
         onGameOver={handleGameOver}
-        onExit={handleBackToMenu} // Add this line
+        onExit={handleBackToMenu}
       />
     </View>
   );
